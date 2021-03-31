@@ -1,14 +1,16 @@
 import java.sql.*;
 
-public class UserDao {
+ public class UserDao {
 
-    public User findByID(Integer id) throws ClassNotFoundException, SQLException {
+     private final ConnectionMaker connectionMaker;
 
-        Class.forName("com.mysql.cj.jdbc.Driver");
-        Connection connection =
-                DriverManager.getConnection(
-                        "jdbc:mysql://localhost/portal","root","rhalsdnwd12#"
-                );
+     public UserDao(ConnectionMaker connectionMaker) {
+         this.connectionMaker = connectionMaker;
+     }
+
+     public User findByID(Integer id) throws ClassNotFoundException, SQLException {
+
+        Connection connection = connectionMaker.getConnection();
         PreparedStatement preparedStatement = connection.prepareStatement(
                 "select * from userinfo where id = ?"
         );
@@ -25,4 +27,31 @@ public class UserDao {
         return user;
 
     }
+
+    public void insert(User user) throws ClassNotFoundException, SQLException {
+
+        Connection connection = connectionMaker.getConnection();
+        PreparedStatement preparedStatement = connection.prepareStatement(
+                "insert into userinfo (name, password) values (?, ?)",
+                Statement.RETURN_GENERATED_KEYS
+        );
+
+        preparedStatement.setString(1, user.getName());
+        preparedStatement.setString(2, user.getPassword());
+
+        preparedStatement.executeUpdate();
+
+        ResultSet resultSet = preparedStatement.getGeneratedKeys();
+        resultSet.next();
+
+        user.setId(resultSet.getInt(1));
+
+
+        preparedStatement.close();
+        connection.close();
+    }
+
+     public Connection getConnection() throws ClassNotFoundException, SQLException {
+         return connectionMaker.getConnection();
+     }
 }
