@@ -1,57 +1,67 @@
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+
 import java.sql.*;
 
- public class UserDao {
+public class UserDao {
+    private final JdbcTemplate jdbcTemplate;
 
-     private final ConnectionMaker connectionMaker;
+    public UserDao(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
 
-     public UserDao(ConnectionMaker connectionMaker) {
-         this.connectionMaker = connectionMaker;
-     }
+    public User findById(Integer id) throws SQLException {
 
-     public User findByID(Integer id) throws ClassNotFoundException, SQLException {
+        String sql = "select * from  userinfo where id = ?";
+        Object[] params = new Object[]{id};
+        return jdbcTemplate.query(sql, rs -> {
+            User user = null;
+            if (rs.next()) {
+                user = new User();
+                user.setId(rs.getInt("id"));
+                user.setName(rs.getString("name"));
+                user.setPassword(rs.getString("password"));
+            }
+            return user;
+        }, id);
+    }
 
-        Connection connection = connectionMaker.getConnection();
-        PreparedStatement preparedStatement = connection.prepareStatement(
-                "select * from userinfo where id = ?"
-        );
-        preparedStatement.setInt(1, id);
-        ResultSet resultSet = preparedStatement.executeQuery();
-        resultSet.next();
-        User user = new User();
-        user.setId(resultSet.getInt("id"));
-        user.setName(resultSet.getString("name"));
-        user.setPassword(resultSet.getString("password"));
-        resultSet.close();
-        preparedStatement.close();
-        connection.close();
-        return user;
+
+    public void insert(User user) throws SQLException {
+
+        String sql = "insert into userinfo (name, password) values ( ?, ? )";
+        Object[] params = new Object[]{user.getName(), user.getPassword()};
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(con -> {
+            PreparedStatement preparedStatement = con.prepareStatement(
+                    sql
+                    , Statement.RETURN_GENERATED_KEYS
+            );
+            for (int i = 0; i < params.length; i++) {
+                preparedStatement.setObject(i + 1, params[i]);
+            }
+            return preparedStatement;
+        }, keyHolder);
+        user.setId(keyHolder.getKey().intValue());
 
     }
 
-    public void insert(User user) throws ClassNotFoundException, SQLException {
+    public void update(User user) throws SQLException {
 
-        Connection connection = connectionMaker.getConnection();
-        PreparedStatement preparedStatement = connection.prepareStatement(
-                "insert into userinfo (name, password) values (?, ?)",
-                Statement.RETURN_GENERATED_KEYS
-        );
+        String sql = "update userinfo set name = ?, password = ? where id = ?";
+        Object[] params = new Object[]{user.getName(), user.getPassword(), user.getId()};
+        jdbcTemplate.update(sql, params);
 
-        preparedStatement.setString(1, user.getName());
-        preparedStatement.setString(2, user.getPassword());
-
-        preparedStatement.executeUpdate();
-
-        ResultSet resultSet = preparedStatement.getGeneratedKeys();
-        resultSet.next();
-
-        user.setId(resultSet.getInt(1));
-
-
-        preparedStatement.close();
-        connection.close();
     }
 
-     public Connection getConnection() throws ClassNotFoundException, SQLException {
-         return connectionMaker.getConnection();
-     }
+    public void delete(Integer id) throws SQLException {
+        
+        String sql = "delete from userinfo where id = ?";
+        Object[] params = new Object[]{id};
+        jdbcTemplate.update(sql, params);
+
+    }
+
+
 }
